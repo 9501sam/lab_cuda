@@ -6,6 +6,18 @@
 //TODO: CUDA kernel for matrix multiplication
 __global__ void matrixMulKernel(float* A, float* B, float* C, int N) {
     //hint: implement the matrix multiplication
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (row < N && col < N) {
+        float sum = 0.0f;
+        for (int k = 0; k < N; ++k) {
+            sum += A[row * N + k] * B[k * N + col];
+
+        }
+        C[row * N + col] = sum;
+
+    }
 }
 
 void matrixMultiplyGPU(float* h_A, float* h_B, float* h_C, int N) {
@@ -15,24 +27,35 @@ void matrixMultiplyGPU(float* h_A, float* h_B, float* h_C, int N) {
     //TODO: Allocate device(GPU) memory
     //hint: cudaMalloc(??, ??)
     float *d_A, *d_B, *d_C;
+    cudaMalloc((void**)&d_A, size);
+    cudaMalloc((void**)&d_B, size);
+    cudaMalloc((void**)&d_C, size);
 
     //TODO: Copy matrices from host(CPU) to device(GPU)
     //hint: cudaMemcpy(??, ??, ??, ??)
-    
+    cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
 
     //TODO: Define block and grid dimensions
     //hint: dim3 threadsPerBlock(??, ??)
     //hint: dim3 numBlocks(??, ??)
+    int blockSize = 8; // Choose a block size, e.g., 16x16
+    dim3 threadsPerBlock(blockSize, blockSize);
+    dim3 numBlocks((N + blockSize - 1) / blockSize, (N + blockSize - 1) / blockSize);
 
     //TODO: Launch the matrix multiplication kernel
     //hint: matrixMulKernel<<<??, ??>>>(?, ?, ?, ?)
+    matrixMulKernel<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, N);
 
     //TODO: Copy result from device to host
     //hint: cudaMemcpy(??, ??, ??, ??);
-    
+    cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
 
     //TODO: Free device memory
     //hint: cudaFree()
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
 }
 
 int main() {
